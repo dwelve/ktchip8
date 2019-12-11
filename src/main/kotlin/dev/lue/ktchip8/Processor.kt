@@ -78,7 +78,29 @@ class Processor {
         const val PROGRAM_START = 0x200
         const val DISPLAY_WIDTH = 64
         const val DISPLAY_HEIGHT = 32
+        const val FONT_BASE_ADDRESS = 0
     }
+
+    val fontSprites = mapOf<Int, List<Int>>(
+        0x0 to listOf(0xF0, 0x90, 0x90, 0x90, 0xF0),
+        0x1 to listOf(0x20, 0x60, 0x20, 0x20, 0x70),
+        0x2 to listOf(0xF0, 0x10, 0xF0, 0x80, 0xF0),
+        0x3 to listOf(0xF0, 0x10, 0xF0, 0x10, 0xF0),
+        0x4 to listOf(0x90, 0x90, 0xF0, 0x10, 0x10),
+        0x5 to listOf(0xF0, 0x80, 0xF0, 0x10, 0xF0),
+        0x6 to listOf(0xF0, 0x80, 0xF0, 0x90, 0xF0),
+        0x7 to listOf(0xF0, 0x10, 0x20, 0x40, 0x40),
+        0x8 to listOf(0xF0, 0x90, 0xF0, 0x90, 0xF0),
+        0x9 to listOf(0xF0, 0x90, 0xF0, 0x10, 0xF0),
+        0xA to listOf(0xF0, 0x90, 0xF0, 0x90, 0x90),
+        0xB to listOf(0xE0, 0x90, 0xE0, 0x90, 0xE0),
+        0xC to listOf(0xF0, 0x80, 0x80, 0x80, 0xF0),
+        0xD to listOf(0xE0, 0x90, 0x90, 0x90, 0xE0),
+        0xE to listOf(0xF0, 0x80, 0xF0, 0x80, 0xF0),
+        0xF to listOf(0xF0, 0x80, 0xF0, 0x80, 0x80)
+    )
+
+    val fontSpriteAddress = (0 .. 0xF).map { it to ((FONT_BASE_ADDRESS) + it*5)}.toMap()
 
     val decodings = listOf(
         Decoding("00E0", "CLS", ::_CLS),
@@ -150,6 +172,17 @@ class Processor {
 
         for (row in display) {
             row.fill(0)
+        }
+
+        loadFonts()
+    }
+
+    fun loadFonts() {
+        for ((key, value) in fontSprites) {
+            val location: Int = fontSpriteAddress[key] ?: error("Grave error! Font $key does not exist!")
+            for (x in value.withIndex()) {
+                memory[location + x.index] = x.value
+            }
         }
     }
 
@@ -393,7 +426,7 @@ class Processor {
 
     fun _SHL_Vx(o: Opcode) {
         val vx = V(o.x)
-        registers[F_REGISTER] = vx shr 15
+        registers[F_REGISTER] = vx shr 7
         registers[o.x] = (vx shl 1) and 0xFF
         advanceToNextInstruction()
     }
@@ -497,7 +530,10 @@ class Processor {
         advanceToNextInstruction()
     }
 
-    fun draw(x: Int, y: Int, height: Int): Boolean {
+    fun draw(_x: Int, _y: Int, height: Int): Boolean {
+        val x = _x % DISPLAY_WIDTH
+        val y = _y % DISPLAY_HEIGHT
+
         val sprite = (0 until height).map { memory[indexRegister + it].toUByte().toString(2).padStart(8, '0') }
         val spriteBits = sprite.map {
             it.map { c -> if (c=='1') 1 else 0 }.toTypedArray()
@@ -524,9 +560,8 @@ class Processor {
         return -1
     }
 
-    fun getSpriteAddress(address: Int): Int {
-        // TODO
-        return -1
+    fun getSpriteAddress(digit: Int): Int {
+       return fontSpriteAddress[digit]!!
     }
 
     fun getBcd(value: Int): List<Int> {
