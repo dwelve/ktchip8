@@ -510,9 +510,9 @@ class Processor {
 
     fun _LD_B_Vx(o: Opcode) {
         val bcd = getBcd(V(o.x))
-        memory[indexRegister] = bcd[0]
+        memory[indexRegister] = bcd[2]
         memory[indexRegister+1] = bcd[1]
-        memory[indexRegister+2] = bcd[2]
+        memory[indexRegister+2] = bcd[0]
         advanceToNextInstruction()
     }
 
@@ -565,7 +565,11 @@ class Processor {
     }
 
     fun getBcd(value: Int): List<Int> {
-        return arrayListOf()
+        return arrayListOf(
+            value % 10,
+            (value / 10) % 10,
+            (value / 100) % 10
+        )
     }
 
 }
