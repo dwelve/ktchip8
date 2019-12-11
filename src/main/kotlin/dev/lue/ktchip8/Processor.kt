@@ -513,7 +513,7 @@ class Processor {
                 val col = (x + x_offset) % DISPLAY_WIDTH
                 val pixelValue = spriteBits[y_offset][x_offset]
                 didUnset = didUnset or (display[row][col]==1) and (pixelValue==0)
-                display[row][col] = pixelValue
+                display[row][col] =  display[row][col] xor pixelValue
             }
         }
         return didUnset
