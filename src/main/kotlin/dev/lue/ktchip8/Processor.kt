@@ -37,6 +37,8 @@ data class Opcode(val a: Int, val b: Int, val c: Int, val d: Int) {
     }*/
 }
 
+class HaltException : Throwable() {}
+
 typealias OpFunc = (Opcode) -> Unit
 
 data class Decoding(val format: String, val assemblyTemplate: String, val callable: OpFunc)
@@ -271,20 +273,27 @@ class Processor {
 
     fun run() {
         reset()
-        var counter = 0
-        while (true) {
-            step()
-            Thread.sleep(1)
-            counter += 1
-            if (counter > 2000) {
-                break
+        try {
+            while (true) {
+                step()
+                //Thread.sleep(1)
             }
+        } catch (e: HaltException) {
+            println("Halting!")
         }
         println("[")
         for (row in display) {
             println(row.contentToString() + ",")
         }
         println("]")
+        println()
+        for (row in display) {
+            for (col in row) {
+                val out = if (col == 1) "\u2588\u2588" else "  "
+                print(out)
+            }
+            println()
+        }
     }
 
     // instructions
@@ -321,6 +330,9 @@ class Processor {
 
            The interpreter sets the program counter to nnn.
          */
+        if (o.address == programCounter) {
+            throw HaltException()
+        }
         programCounter = o.address
     }
 
