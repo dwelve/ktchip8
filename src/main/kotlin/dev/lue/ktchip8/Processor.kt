@@ -215,6 +215,7 @@ class Processor {
 
     fun decodeInstruction(): DecodedInstruction {
         val opcode = Opcode.create(readOpcode())
+        advanceToNextInstruction()
 
         val format = when (opcode.a) {
             0 -> {
@@ -381,7 +382,6 @@ class Processor {
            Clear the display.
          */
         clearDisplay()
-        advanceToNextInstruction()
     }
 
     fun _RET(o: Opcode) {
@@ -390,7 +390,6 @@ class Processor {
          */
         programCounter = stack[stackPointer]
         stackPointer -= 1
-        advanceToNextInstruction()
     }
 
     fun _JP_addr(o: Opcode) {
@@ -399,7 +398,7 @@ class Processor {
 
            The interpreter sets the program counter to nnn.
          */
-        if (o.address == programCounter) {
+        if (o.address == programCounter - 2) {
             throw HaltException()
         }
         programCounter = o.address
@@ -425,63 +424,50 @@ class Processor {
         The interpreter compares register Vx to kk, and if they are equal, increments the program counter by 2.
          */
         if (V(o.x) == o.byte) {
-            advanceAndSkipToNextInstruction()
-        } else {
             advanceToNextInstruction()
         }
     }
 
     fun _SNE_Vx_byte(o: Opcode) {
         if (V(o.x) != o.byte) {
-            advanceAndSkipToNextInstruction()
-        } else {
             advanceToNextInstruction()
         }
     }
 
     fun _SE_Vx_Vy(o: Opcode) {
         if (V(o.x) == V(o.y)) {
-            advanceAndSkipToNextInstruction()
-        } else {
             advanceToNextInstruction()
         }
     }
 
     fun _LD_Vx_byte(o: Opcode) {
         registers[o.x] = o.byte
-        advanceToNextInstruction()
     }
 
     fun _ADD_Vx_byte(o: Opcode) {
         registers[o.x] = (V(o.x) + o.byte) and 0xFF
-        advanceToNextInstruction()
     }
 
     fun _LD_Vx_Vy(o: Opcode) {
         registers[o.x] = V(o.y)
-        advanceToNextInstruction()
     }
 
     fun _OR_Vx_Vy(o: Opcode) {
         registers[o.x] = V(o.x) or V(o.y)
-        advanceToNextInstruction()
     }
 
     fun _AND_Vx_Vy(o: Opcode) {
         registers[o.x] = V(o.x) and V(o.y)
-        advanceToNextInstruction()
     }
 
     fun _XOR_Vx_Vy(o: Opcode) {
         registers[o.x] = V(o.x) xor V(o.y)
-        advanceToNextInstruction()
     }
 
     fun _ADD_Vx_Vy(o: Opcode) {
         val foo = (V(o.x) + V(o.y))
         registers[o.x] = foo and 0xFF
         registers[F_REGISTER] = if (foo > 0xFF) 1 else 0
-        advanceToNextInstruction()
     }
 
     fun _SUB_Vx_Vy(o: Opcode) {
@@ -489,14 +475,12 @@ class Processor {
         val y = V(o.y)
         registers[o.x] = (x - y) % 256
         registers[F_REGISTER] = if (x > y) 1 else 0
-        advanceToNextInstruction()
     }
 
     fun _SHR_Vx(o: Opcode) {
         val vx = V(o.x)
         registers[F_REGISTER] = vx and 0x1
         registers[o.x] = (vx shr 1) and 0xFF
-        advanceToNextInstruction()
     }
 
     fun _SUBN_Vx_Vy(o: Opcode) {
@@ -504,27 +488,22 @@ class Processor {
         val y = V(o.y)
         registers[o.x] = (y - x) % 256
         registers[F_REGISTER] = if (y > x) 1 else 0
-        advanceToNextInstruction()
     }
 
     fun _SHL_Vx(o: Opcode) {
         val vx = V(o.x)
         registers[F_REGISTER] = vx shr 7
         registers[o.x] = (vx shl 1) and 0xFF
-        advanceToNextInstruction()
     }
 
     fun _SNE_Vx_Vy(o: Opcode) {
         if (V(o.x) != V(o.y)) {
-            advanceAndSkipToNextInstruction()
-        } else {
             advanceToNextInstruction()
         }
     }
 
     fun _LD_I_addr(o: Opcode) {
         indexRegister = o.address
-        advanceToNextInstruction()
     }
 
     fun _JP_V0_addr(o: Opcode) {
@@ -533,20 +512,16 @@ class Processor {
 
     fun _RND_Vx_byte(o: Opcode) {
         registers[o.x] = (0..255).random() and o.byte
-        advanceToNextInstruction()
     }
 
     fun _DRW_Vx_Vy_nibble(o: Opcode) {
         val didUnset = draw(V(o.x), V(o.y), o.d)
         registers[F_REGISTER] = if (didUnset) 1 else 0
-        advanceToNextInstruction()
     }
 
     fun _SKP_Vx(o: Opcode) {
         // Skips the next instruction if the key stored in VX is pressed
         if (getKeyPress() == V(o.x)) {
-            advanceAndSkipToNextInstruction()
-        } else {
             advanceToNextInstruction()
         }
     }
@@ -554,43 +529,35 @@ class Processor {
     fun _SKNP_Vx(o: Opcode) {
         // Skips the next instruction if the key stored in VX is pressed
         if (getKeyPress() != V(o.x)) {
-            advanceAndSkipToNextInstruction()
-        } else {
             advanceToNextInstruction()
         }
     }
 
     fun _LD_Vx_DT(o: Opcode) {
         registers[o.x] = delayTimer
-        advanceToNextInstruction()
     }
 
     fun _LD_Vx_K(o: Opcode) {
         registers[o.x] = getKeyPress(0)
-        advanceToNextInstruction()
 
     }
 
     fun _LD_DT_Vx(o: Opcode) {
         delayTimer = V(o.x)
-        advanceToNextInstruction()
     }
 
     fun _LD_ST_Vx(o: Opcode) {
         soundTimer = V(o.x)
-        advanceToNextInstruction()
     }
 
     fun _ADD_I_Vx(o: Opcode) {
         val tmp = (indexRegister + V(o.x))
         indexRegister = tmp and 0xFFFF
         registers[F_REGISTER] = if (tmp > 0xFF) 1 else 0  // undocumented
-        advanceToNextInstruction()
     }
 
     fun _LD_F_Vx(o: Opcode) {
         indexRegister = getSpriteAddress(V(o.x))
-        advanceToNextInstruction()
     }
 
     fun _LD_B_Vx(o: Opcode) {
@@ -598,21 +565,18 @@ class Processor {
         memory[indexRegister] = bcd[2]
         memory[indexRegister+1] = bcd[1]
         memory[indexRegister+2] = bcd[0]
-        advanceToNextInstruction()
     }
 
     fun _LD_I_Vx(o: Opcode) {
         for (index in 0 .. o.x ) {
             memory[indexRegister + index] = V(index)
         }
-        advanceToNextInstruction()
     }
 
     fun _LD_Vx_I(o: Opcode) {
         for (index in 0 .. o.x ) {
             registers[index] = memory[indexRegister + index]
         }
-        advanceToNextInstruction()
     }
 
     fun draw(_x: Int, _y: Int, height: Int): Boolean {
