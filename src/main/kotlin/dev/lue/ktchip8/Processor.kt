@@ -1,5 +1,9 @@
 package dev.lue.ktchip8
 
+import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.ReceiveChannel
+import kotlinx.coroutines.channels.ticker
+
 data class Opcode(val a: Int, val b: Int, val c: Int, val d: Int) {
     companion object Factory {
         fun create(opcode: Int): Opcode {
@@ -81,6 +85,7 @@ class Processor {
         const val DISPLAY_WIDTH = 64
         const val DISPLAY_HEIGHT = 32
         const val FONT_BASE_ADDRESS = 0
+        const val TIMER_PERIOD = 17L    // ~58.8Hz ; ~16.67ms => ~60 Hz ; might have to  use other method to get better accuracy for ticker channel
     }
 
     val fontSprites = mapOf<Int, List<Int>>(
@@ -161,6 +166,8 @@ class Processor {
 
     val display: Array<IntArray> = (1..DISPLAY_HEIGHT).map { IntArray(DISPLAY_WIDTH) {0} }.toTypedArray()
 
+    val timerChannel = ticker(delayMillis = TIMER_PERIOD, initialDelayMillis = 0)
+
     fun reset() {
         memory.fill(0)
         this.program.copyInto(memory, PROGRAM_START)
@@ -172,11 +179,15 @@ class Processor {
         soundTimer = 0
         programCounter = PROGRAM_START
 
+        clearDisplay()
+
+        loadFonts()
+    }
+
+    fun clearDisplay() {
         for (row in display) {
             row.fill(0)
         }
-
-        loadFonts()
     }
 
     fun loadFonts() {
@@ -210,7 +221,7 @@ class Processor {
                 when (opcode.int) {
                     0x00E0 -> "00E0"
                     0x00EE -> "00EE"
-                    else -> error("Invalid opcode: ${opcode.hex}")
+                    else -> null
                 }
             }
             1 -> "1NNN"
@@ -231,7 +242,7 @@ class Processor {
                     6 -> "8XY6"
                     7 -> "8XY7"
                     0xE -> "8XYE"
-                    else -> error("Invalid opcode: ${opcode.hex}")
+                    else -> null
                 }
             }
             9 -> "9XY0"
@@ -242,7 +253,7 @@ class Processor {
             0xE -> when (opcode.byte) {
                 0x9E -> "EX9E"
                 0xA1 -> "EXA1"
-                else -> error("Invalid opcode: ${opcode.hex}")
+                else -> null
             }
             0xF -> when (opcode.byte) {
                 0x0A -> "FX0A"
@@ -253,12 +264,28 @@ class Processor {
                 0x33 -> "FX33"
                 0x55 -> "FX55"
                 0x65 -> "FX65"
-                else -> error("Invalid opcode: ${opcode.hex}")
+                else -> null
             }
-            else -> error("Invalid opcode: ${opcode.hex}")
+            else -> null
         }
-        val decoding = ops[format] ?: error("Invalid format: $format")
-        return DecodedInstruction(decoding, opcode)
+        if (format != null) {
+            val decoding = ops[format] ?: error("Invalid format: $format")
+            return DecodedInstruction(decoding, opcode)
+        } else {
+            println("invalid opcode")
+            println("PC=${programCounter.toString(16).padStart(4, '0')} op=${opcode.hex}")
+            println("registers:")
+            println("${registers.contentToString()}")
+            println(getRegisterStringDump())
+            println("DT: $delayTimer  ST: $soundTimer")
+            error("Invalid opcode: ${opcode.hex}")
+        }
+    }
+
+    fun getRegisterStringDump(): String {
+        return registers.withIndex().joinToString {
+            "${it.index.toString(16).toUpperCase()}=${it.value.toString(16).toUpperCase()}"
+        }
     }
 
     fun step() {
@@ -266,26 +293,67 @@ class Processor {
 
         val line = decodedInstruction.formatInstruction()
 
-        println("${programCounter.toString(16).padStart(4, '0')}:\t${decodedInstruction.decoding.format}\t${decodedInstruction.decoding.assemblyTemplate}\t\t$line")
+        //println("${programCounter.toString(16).padStart(4, '0')}:\t${decodedInstruction.opcode.hex}\t${decodedInstruction.decoding.format}\t${decodedInstruction.decoding.assemblyTemplate.padEnd(10, ' ')}\t${line.padEnd(16, ' ')} ${getRegisterStringDump()}, DT=${delayTimer.toString(16)}, ST=${soundTimer.toString(16)}")
+
         decodedInstruction.execute()
 
     }
 
+    fun decrementTimers() {
+        if (delayTimer > 0) {
+            delayTimer -= 1
+        }
+        if (soundTimer > 0) {
+            soundTimer -= 1
+        }
+    }
+
     fun run() {
+        runBlocking {
+            val mainLoop = async {
+                runMainLoop()
+            }
+
+            val timerJob = launch {
+                while (true) {
+                    timerChannel.receive()
+                    decrementTimers()
+                }
+            }
+
+            mainLoop.join()
+            timerJob.cancelAndJoin()
+        }
+    }
+
+    suspend fun runMainLoop() {
         reset()
+
         try {
+            var counter = 0
             while (true) {
                 step()
-                //Thread.sleep(1)
+                delay(1)
+                counter += 1
+                if (counter % 0x200 == 0) {
+                    println()
+                    for (row in display) {
+                        for (col in row) {
+                            val out = if (col == 1) "\u2588\u2588" else "  "
+                            print(out)
+                        }
+                        println()
+                    }
+                }
             }
         } catch (e: HaltException) {
             println("Halting!")
         }
-        println("[")
+        /*println("[")
         for (row in display) {
             println(row.contentToString() + ",")
         }
-        println("]")
+        println("]")*/
         println()
         for (row in display) {
             for (col in row) {
@@ -312,7 +380,7 @@ class Processor {
         /* 00E0 - CLS
            Clear the display.
          */
-        println("Cleared the display")
+        clearDisplay()
         advanceToNextInstruction()
     }
 
@@ -322,6 +390,7 @@ class Processor {
          */
         programCounter = stack[stackPointer]
         stackPointer -= 1
+        advanceToNextInstruction()
     }
 
     fun _JP_addr(o: Opcode) {
@@ -384,7 +453,7 @@ class Processor {
     }
 
     fun _ADD_Vx_byte(o: Opcode) {
-        registers[o.x] = (V(o.x) + o.byte) % 255
+        registers[o.x] = (V(o.x) + o.byte) and 0xFF
         advanceToNextInstruction()
     }
 
@@ -410,29 +479,31 @@ class Processor {
 
     fun _ADD_Vx_Vy(o: Opcode) {
         val foo = (V(o.x) + V(o.y))
-        registers[o.x] = foo % 255
-        registers[F_REGISTER] = if (foo > 255) 1 else 0     // overflow
+        registers[o.x] = foo and 0xFF
+        registers[F_REGISTER] = if (foo > 0xFF) 1 else 0
         advanceToNextInstruction()
     }
 
     fun _SUB_Vx_Vy(o: Opcode) {
-        val foo = (V(o.x) - V(o.y))
-        registers[o.x] = foo % 255
-        registers[F_REGISTER] = if (foo < 0) 0 else 1       // underflow
+        val x = V(o.x)
+        val y = V(o.y)
+        registers[o.x] = (x - y) % 256
+        registers[F_REGISTER] = if (x > y) 1 else 0
         advanceToNextInstruction()
     }
 
     fun _SHR_Vx(o: Opcode) {
         val vx = V(o.x)
         registers[F_REGISTER] = vx and 0x1
-        registers[o.x] = vx shr 1
+        registers[o.x] = (vx shr 1) and 0xFF
         advanceToNextInstruction()
     }
 
     fun _SUBN_Vx_Vy(o: Opcode) {
-        val foo = (V(o.y) - V(o.x))
-        registers[o.x] = foo % 255
-        registers[F_REGISTER] = if (foo < 0) 0 else 1       // underflow
+        val x = V(o.x)
+        val y = V(o.y)
+        registers[o.x] = (y - x) % 256
+        registers[F_REGISTER] = if (y > x) 1 else 0
         advanceToNextInstruction()
     }
 
@@ -511,7 +582,9 @@ class Processor {
     }
 
     fun _ADD_I_Vx(o: Opcode) {
-        indexRegister = indexRegister + V(o.x)
+        val tmp = (indexRegister + V(o.x))
+        indexRegister = tmp and 0xFFFF
+        registers[F_REGISTER] = if (tmp > 0xFF) 1 else 0  // undocumented
         advanceToNextInstruction()
     }
 
@@ -550,9 +623,9 @@ class Processor {
         val spriteBits = sprite.map {
             it.map { c -> if (c=='1') 1 else 0 }.toTypedArray()
         }
-        for (row in spriteBits) {
+        /*for (row in spriteBits) {
             println(row.contentToString())
-        }
+        }*/
 
         var didUnset = false
         for (y_offset in 0 until height) {

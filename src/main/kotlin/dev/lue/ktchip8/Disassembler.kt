@@ -73,7 +73,7 @@ class Disassembler {
                     when (opcode.int) {
                         0x00E0 -> "00E0"
                         0x00EE -> "00EE"
-                        else -> error("Invalid opcode: ${opcode.hex}")
+                        else -> null //error("Invalid opcode: ${opcode.hex}")
                     }
                 }
                 1 -> "1NNN"
@@ -94,7 +94,7 @@ class Disassembler {
                         6 -> "8XY6"
                         7 -> "8XY7"
                         0xE -> "8XYE"
-                        else -> error("Invalid opcode: ${opcode.hex}")
+                        else -> null //error("Invalid opcode: ${opcode.hex}")
                     }
                 }
                 9 -> "9XY0"
@@ -105,7 +105,7 @@ class Disassembler {
                 0xE -> when (opcode.byte) {
                     0x9E -> "EX9E"
                     0xA1 -> "EXA1"
-                    else -> error("Invalid opcode: ${opcode.hex}")
+                    else -> null //error("Invalid opcode: ${opcode.hex}")
                 }
                 0xF -> when (opcode.byte) {
                     0x0A -> "FX0A"
@@ -116,12 +116,19 @@ class Disassembler {
                     0x33 -> "FX33"
                     0x55 -> "FX55"
                     0x65 -> "FX65"
-                    else -> error("Invalid opcode: ${opcode.hex}")
+                    else -> null //error("Invalid opcode: ${opcode.hex}")
                 }
-                else -> error("Invalid opcode: ${opcode.hex}")
+                else -> null//error("Invalid opcode: ${opcode.hex}")
             }
-            val line = formatInstruction(opcode, format)
-            println("${pc.toString(16).padStart(4, '0')}:\t${opcode.hex}\t$line\t\t$format")
+            val pc2 = pc + 0x200
+            if (format != null) {
+                format.let {
+                    val line = formatInstruction(opcode, it)
+                    println("${pc2.toString(16).padStart(4, '0')}:\t${opcode.hex}\t$line\t\t$it")
+                }
+            } else {
+                println("${pc2.toString(16).padStart(4, '0')}:\t${opcode.hex}\tDATA")
+            }
         }
     }
 }
