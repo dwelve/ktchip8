@@ -295,7 +295,7 @@ class Processor {
 
         val line = decodedInstruction.formatInstruction()
 
-        //println("${programCounter.toString(16).padStart(4, '0')}:\t${decodedInstruction.opcode.hex}\t${decodedInstruction.decoding.format}\t${decodedInstruction.decoding.assemblyTemplate.padEnd(10, ' ')}\t${line.padEnd(16, ' ')} ${getRegisterStringDump()}, DT=${delayTimer.toString(16)}, ST=${soundTimer.toString(16)}")
+        //println("${programCounter.toString(16).padStart(4, '0')}:\t${decodedInstruction.opcode.hex}\t${decodedInstruction.decoding.format}\t${decodedInstruction.decoding.assemblyTemplate.padEnd(10, ' ')}\t${line.padEnd(16, ' ')} ${getRegisterStringDump()}, DT=${delayTimer.toString(16)}, ST=${soundTimer.toString(16)} I=${indexRegister.toString(16)}")
 
         advanceToNextInstruction()
         decodedInstruction.execute()
@@ -348,6 +348,9 @@ class Processor {
                         println()
                     }
                 }
+                //if (counter > 1000) {
+                //    break
+                //}
             }
         } catch (e: HaltException) {
             println("Halting!")
@@ -541,7 +544,6 @@ class Processor {
 
     fun _LD_Vx_K(o: Opcode) {
         registers[o.x] = getKeyPress(0)
-
     }
 
     fun _LD_DT_Vx(o: Opcode) {
@@ -555,7 +557,6 @@ class Processor {
     fun _ADD_I_Vx(o: Opcode) {
         val tmp = (indexRegister + V(o.x))
         indexRegister = tmp and 0xFFFF
-        registers[F_REGISTER] = if (tmp > 0xFF) 1 else 0  // undocumented
     }
 
     fun _LD_F_Vx(o: Opcode) {

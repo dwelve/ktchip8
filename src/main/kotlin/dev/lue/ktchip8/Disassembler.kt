@@ -62,6 +62,9 @@ class Disassembler {
 
     fun disassemble(program: IntArray) {
         for ( instr in  program.asList().chunked(2).withIndex()) {
+            if (instr.value.size != 2) {
+                continue
+            }
             val msb = instr.value[0]
             val lsb = instr.value[1]
             val pc = instr.index * 2
