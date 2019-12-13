@@ -22,7 +22,7 @@ class ProcessorTest {
 
     @Test
     fun processorPassesTestRom() {
-        val _program = File(TEST_ROM).readBytes()
+        val _program = File(TEST_ROM2).readBytes()
         val program = _program.map { it.toInt() and 0xff }.toIntArray()
 
         val processor = Processor()

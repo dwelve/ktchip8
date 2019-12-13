@@ -215,7 +215,7 @@ class Processor {
 
     fun decodeInstruction(): DecodedInstruction {
         val opcode = Opcode.create(readOpcode())
-        advanceToNextInstruction()
+        //advanceToNextInstruction()
 
         val format = when (opcode.a) {
             0 -> {
@@ -257,6 +257,7 @@ class Processor {
                 else -> null
             }
             0xF -> when (opcode.byte) {
+                0x07 -> "FX07"
                 0x0A -> "FX0A"
                 0x15 -> "FX15"
                 0x18 -> "FX18"
@@ -296,6 +297,7 @@ class Processor {
 
         //println("${programCounter.toString(16).padStart(4, '0')}:\t${decodedInstruction.opcode.hex}\t${decodedInstruction.decoding.format}\t${decodedInstruction.decoding.assemblyTemplate.padEnd(10, ' ')}\t${line.padEnd(16, ' ')} ${getRegisterStringDump()}, DT=${delayTimer.toString(16)}, ST=${soundTimer.toString(16)}")
 
+        advanceToNextInstruction()
         decodedInstruction.execute()
 
     }
@@ -471,9 +473,9 @@ class Processor {
     }
 
     fun _SUB_Vx_Vy(o: Opcode) {
-        val x = V(o.x)
-        val y = V(o.y)
-        registers[o.x] = (x - y) % 256
+        val x: Int = V(o.x)
+        val y: Int = V(o.y)
+        registers[o.x] = (x - y) and 0xFF
         registers[F_REGISTER] = if (x > y) 1 else 0
     }
 
@@ -484,16 +486,16 @@ class Processor {
     }
 
     fun _SUBN_Vx_Vy(o: Opcode) {
-        val x = V(o.x)
-        val y = V(o.y)
-        registers[o.x] = (y - x) % 256
+        val x: Int = V(o.x)
+        val y: Int = V(o.y)
+        registers[o.x] = (y - x) and 0xFF
         registers[F_REGISTER] = if (y > x) 1 else 0
     }
 
     fun _SHL_Vx(o: Opcode) {
-        val vx = V(o.x)
-        registers[F_REGISTER] = vx shr 7
-        registers[o.x] = (vx shl 1) and 0xFF
+        val x = V(o.x)
+        registers[F_REGISTER] = x shr 7
+        registers[o.x] = (x shl 1) and 0xFF
     }
 
     fun _SNE_Vx_Vy(o: Opcode) {
