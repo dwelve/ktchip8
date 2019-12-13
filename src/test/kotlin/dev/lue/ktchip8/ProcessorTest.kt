@@ -16,7 +16,6 @@ class ProcessorTest {
     val TEST_ROM = "/Users/lue/devel/kotlin/ktchip8/roms/test_opcode.ch8"
     val TEST_ROM2 = "/Users/lue/devel/kotlin/ktchip8/roms/c8_test.c8"
     val PARTICLE_DEMO = "/Users/lue/devel/kotlin/chip8-resources/chip8/roms/demos/Particle Demo [zeroZshadow, 2008].ch8"
-    // huh, i think sierpinksi might be an super chip-8 program
     val SIERPINSKI_DEMO = "/Users/lue/devel/kotlin/chip8-resources/chip8/roms/demos/Sierpinski [Sergey Naydenov, 2010].ch8"
     val IBM_LOGO = "/Users/lue/devel/kotlin/chip8-resources/chip8/roms/programs/IBM Logo.ch8"
     val CHIP8_LOGO = "/Users/lue/devel/kotlin/chip8-resources/chip8/roms/programs/Chip8 emulator Logo [Garstyciuks].ch8"
